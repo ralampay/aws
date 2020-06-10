@@ -1,0 +1,98 @@
+Parameters:
+  VPCCIDR:
+    Description: The VPC for the rails stack
+    Type: String
+    Default: 10.10.0.0/16
+  PublicSubnetCIDR:
+    Description: The CIDR addresses for Public Subnet
+    Type: String
+    Default: 10.10.10.0/24
+  PrivateSubnetCIDR:
+    Description: The CIDR addresses for Private Subnet
+    Type: String
+    Default: 10.10.10.0/24
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        -
+          Key: Name
+          Value: RS-VPC
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        -
+          Key: Name
+          Value: RS-IG
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnetCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        -
+          Key: Name
+          Value: RS-PublicSubnet1-AZ1
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnetCIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - 
+          Key: Name
+          Value: RS-PrivateSubnet1-AZ1
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  WebAppServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.small
+      ImageId: ami-05405da5795c2f2e7
+      KeyName: rails-stack
+      SecurityGroups:
+        - !Ref RSWebApp
+      UserData: !Base64 |
+        #!/bin/bash
+        sudo apt update -y && sudo apt upgrade -y
+        sudo apt install curl -y
+        sudo apt install gnupg2
+        sudo apt install libpq-dev -y
+        sudo -u ubuntu
+        gpg2 --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+        curl -sSL https://get.rvm.io | bash -s stable
+        rvm install 2.7.1 --default
+
+  RSWebApp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Web app security group allowing SSH and port 80
+      SecurityGroupIngress:
+        -
+          IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+        -
+          IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
