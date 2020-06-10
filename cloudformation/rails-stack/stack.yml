@@ -110,6 +110,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Web app security group allowing SSH and port 80
+      VpcId: !Ref VPC
       SecurityGroupIngress:
         -
           IpProtocol: tcp
