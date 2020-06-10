@@ -10,7 +10,7 @@ Parameters:
   PrivateSubnetCIDR:
     Description: The CIDR addresses for Private Subnet
     Type: String
-    Default: 10.10.10.0/24
+    Default: 10.10.11.0/24
 
 Resources:
   VPC:
@@ -62,13 +62,39 @@ Resources:
       InternetGatewayId: !Ref InternetGateway
       VpcId: !Ref VPC
 
+  # Our route table to be attached to the public subnet
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+        -
+          Key: Name
+          Value: PublicRouteTable
+
+  # Route any traffic to the internet gateway
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
+
+  # Associate public route table to public subnet
+  PublicRouteSubnetAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
   WebAppServer:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t3.small
       ImageId: ami-05405da5795c2f2e7
       KeyName: rails-stack
-      SecurityGroups:
+      SubnetId: !Ref PublicSubnet1
+      SecurityGroupIds:
         - !Ref RSWebApp
       UserData: !Base64 |
         #!/bin/bash
@@ -76,10 +102,9 @@ Resources:
         sudo apt install curl -y
         sudo apt install gnupg2
         sudo apt install libpq-dev -y
-        sudo -u ubuntu
-        gpg2 --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
-        curl -sSL https://get.rvm.io | bash -s stable
-        rvm install 2.7.1 --default
+        sudo -u ubuntu gpg2 --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+        sudo -u ubuntu curl -sSL https://get.rvm.io | sudo -u ubuntu bash -s stable
+        sudo -u ubuntu /home/ubuntu/.rvm/bin/rvm install 2.7.1 --default
 
   RSWebApp:
     Type: AWS::EC2::SecurityGroup
